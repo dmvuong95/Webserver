@@ -1,5 +1,6 @@
 const BaseCtr = require('./BaseCtr');
 const User = require('../models/users');
+const _ = require('lodash');
 
 const userCtr = new BaseCtr({
   model: User,
@@ -10,11 +11,9 @@ const userCtr = new BaseCtr({
         if (err) return callback(err);
         if (!result) return callback(null, { ok: false, message: `Can't find username!` });
         if (result.password !== data.password.toString()) return callback(null, { ok: false, message: `Wrong password!` });
-        result._id = result._id.toHexString();
-        console.log('1444', result, typeof result._id, result._id.toString(), result._id.toHexString());
-        result.password = undefined;
-        console.log(result);
-        callback(null, { ok: true, data: result });
+        let rawData = this.model.getRawData(result);
+        delete rawData.password;
+        callback(null, { ok: true, data: rawData });
       })
     },
     signUp(dataInput, callback) {

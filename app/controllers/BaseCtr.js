@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const _ = require('lodash');
+const async = require('async');
 
 module.exports = function({model, methods}) {
   // Assign model for this controller
@@ -10,13 +11,12 @@ module.exports = function({model, methods}) {
     data._id = undefined;
     this.model.create(data, (err,result)=> {
       if (err) return callback(err);
-      result._id = result._id.toHexString();
-      callback(null, {ok: true, data: result});
+      callback(null, {ok: true, data: this.model.getRawData(result)});
     });
   };
   this.edit = function ({data}, callback) {
-    let updateData = _.cloneDeep(data);
-    updateData._id = undefined;
+    let updateData = _.clone(data);
+    delete updateData._id;
     this.model.updateOne({_id: mongoose.Types.ObjectId(data._id)}, updateData, (err,result)=> {
       if (err) return callback(err);
       callback(null, {ok: true, data: result});
@@ -30,10 +30,10 @@ module.exports = function({model, methods}) {
     })
   }
   this.get = function ({data}, callback) {
+    if (!data || !data._id) return callback(null, {ok: false, message: '_id is undefined'});
     this.model.findOne({_id: mongoose.Types.ObjectId(data._id)}, (err,result)=> {
       if (err) return callback(err);
-      result._id = result._id.toHexString();
-      callback(null, {ok: true, data: result});
+      callback(null, {ok: true, data: this.model.getRawData(result)});
     });
   };
   this.getAll = function ({data}, callback) {
@@ -49,13 +49,16 @@ module.exports = function({model, methods}) {
     let sort = data && data.sort ? data.sort : {};
     let skip = data && !isNaN(data.skip) && Number(data.skip) >= 0 ? Number(data.skip) : 0;
     let limit = data && !isNaN(data.limit) && Number(data.limit) > 0 ? Number(data.limit) : undefined;
-    this.model.find(query, fields).sort(sort).skip(skip).limit(limit).exec((err,result)=> {
-      if (err) return callback(err);
-      result.forEach(record => {
-        record._id = record._id.toHexString();
-      });
-      callback(null, {ok: true, data: result});
-    });
+    async.parallel({
+      data: (callback) => {
+        this.model.find(query, fields).sort(sort).skip(skip).limit(limit).exec((err,result)=> {
+          if (err) return callback(err);
+          callback(err, result.map(r => this.model.getRawData(r)));
+        });
+      },
+      total: (callback) => this.model.countDocuments(query, callback),
+      ok: callback => callback(null, true)
+    }, callback)
   };
   // Assign custom methods for this comtroller
   if (methods) {

@@ -20,13 +20,13 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+const mongoose = require('mongoose');
+const redis = require('redis');
+const client = redis.createClient();
 
 /**
  * Listen on provided port, on all network interfaces.
  */
-const mongooose = require('mongoose');
-const redis = require('redis');
-const client = redis.createClient();
 client.on("connect", ()=> {
   console.log("Connected redis server!");
 });
@@ -34,11 +34,11 @@ client.once('error', (err)=> {
   console.error('Connect redis error:',err);
   process.exit(1);
 });
-mongooose.connection.once('error', ()=> {
+mongoose.connection.once('error', ()=> {
   console.error('Connect mongodb error:',err);
   process.exit(1);
 })
-mongooose.connect('mongodb://localhost:27017/checker', { useNewUrlParser: true }, (error) => {
+mongoose.connect('mongodb://localhost:27017/checker', { useNewUrlParser: true }, (error) => {
   if (error) return console.error('Connect mongodb error:', error);
   console.log('Connected mongodb server!');
   server.listen(port, (error) => {
